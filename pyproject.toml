@@ -1,0 +1,12 @@
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 90
+skip-string-normalization = true
+skip-magic-trailing-comma = true
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+env_files = [".env.test"]

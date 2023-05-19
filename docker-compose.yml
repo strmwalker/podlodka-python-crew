@@ -1,0 +1,42 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/opt/app
+    command: uvicorn web:app --reload --host 0.0.0.0 --port 8000 --log-config logging_config.json
+    env_file:
+      - .env
+    depends_on:
+      - db
+
+  db:
+    image: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=usplit
+      - POSTGRES_USER=captain
+      - POSTGRES_PASSWORD=periscope
+    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr"]
+
+  tests:
+    build: .
+    volumes:
+      - .:/opt/app
+    command: pytest -vv
+    env_file:
+      - .env.test
+
+
+  test-db:
+    image: postgres
+    ports:
+      - "15432:5432"
+    environment:
+      - POSTGRES_DB=usplit
+      - POSTGRES_USER=captain
+      - POSTGRES_PASSWORD=periscope

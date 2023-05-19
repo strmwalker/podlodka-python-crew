@@ -1,0 +1,58 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "text": {
+            "()": "logging.Formatter",
+            "format": "%(asctime)s %(levelname)s %(name)s: %(message)s"
+        }
+    },
+    "handlers": {
+        "null": {
+            "level": "DEBUG",
+            "class": "logging.NullHandler"
+        },
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "text"
+        }
+    },
+    "loggers": {
+        "services": {
+            "handlers": [
+                "console"
+            ],
+            "level": "DEBUG",
+            "propagate": false
+        },
+        "repositories": {
+            "handlers": [
+                "console"
+            ],
+            "level": "DEBUG",
+            "propagate": false
+        },
+        "web": {
+            "handlers": [
+                "console"
+            ],
+            "level": "DEBUG",
+            "propagate": false
+        },
+        "uvicorn.access": {
+            "handlers": [
+                "console"
+            ],
+            "level": "INFO",
+            "propagate": false
+        },
+        "uvicorn.error": {
+            "handlers": [
+                "console"
+            ],
+            "level": "INFO",
+            "propagate": false
+        }
+    }
+}
