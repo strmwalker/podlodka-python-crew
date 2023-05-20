@@ -1,6 +1,6 @@
 -- 
 -- depends:
-DROP TABLE bill_participants;
+DROP TABLE bill_shares;
 DROP TABLE transactions;
 DROP TABLE bills;
 DROP TABLE memberships;

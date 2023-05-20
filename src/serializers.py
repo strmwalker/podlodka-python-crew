@@ -30,31 +30,30 @@ class Group(Serializer):
     members: list[User]
 
 
-class Participant(Serializer):
+class BillShare(Serializer):
     user_id: int
     amount: float | None
 
 
 class BillIn(Serializer):
-    name: str
-    description: str | None
+    description: str
     total_amount: float
 
     payer_id: int | None
     group_id: int
 
-    participants: set[Participant] | None
+    shares: list[BillShare] | None
 
 
 class Share(Serializer):
     user: User
-    amount_owed: float
+    # user_id: int
+    amount: float
 
 
 class Bill(Serializer):
     id: int
-    name: str = Field(alias='description')
-    description: str | None
+    description: str
     total_amount: float
 
     payer: User

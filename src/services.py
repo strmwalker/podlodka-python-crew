@@ -1,5 +1,4 @@
 import logging
-from typing import Sequence, Collection
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +23,7 @@ class AuthError(Exception):
 
 
 async def create_user(user_in: serializers.UserIn, session: AsyncSession) -> models.User:
-    user = await repositories.users.create_user(session, user_in)
+    user = repositories.users.create_user(session, user_in)
     try:
         await session.commit()
     except IntegrityError:
@@ -38,23 +37,19 @@ async def create_group(
     group = await repositories.groups.create_group(session, group_in)
     group.members.append(user)
     await session.commit()
-    await session.refresh(group)
     return group
 
 
-# async def create_group(
-#     name: str, user: models.User, member_ids: list[int] | None, session: AsyncSession
-# ):
-#     group = await repositories.groups.create_group(session, name, member_ids)
-#     # if member_ids:
-#     #     members = await repositories.users.get_by_ids(session, member_ids)
-#     #     for member in members:
-#     #         session.add(models.Membership(user_id=member.id, group_id=group.id))
-#     # session.add(models.Membership(user_id=user.id, group=group))
-#     group.members.append(user)
-#     await session.commit()
-#     await session.refresh(group)
-#     return group
+async def get_group(
+    group_id: int, user: models.User, session: AsyncSession
+) -> models.Group | None:
+    """Get group and test for membership"""
+    group = await repositories.groups.get_by_id(session, group_id)
+    if not group:
+        raise NotFoundError(f'Group id={group_id} not found')
+    if user not in group.members:
+        raise AuthError(f'User id={user.id} is not a member of group id={group.id}')
+    return group
 
 
 async def add_member(
@@ -72,68 +67,46 @@ async def add_member(
     return group
 
 
-async def get_group(group_id: int, user: models.User, session: AsyncSession) -> models.Group | None:
-    group = await repositories.groups.get_by_id(session, group_id)
-    if not group:
-        return None
-    if user not in group.members:
-        raise AuthError(f'User id={user.id} is not a member of group id={group.id}')
-    return group
-
-
-async def user_is_participant(user_id: int, bill_id: int, session: AsyncSession) -> bool:
-    participant = await repositories.bills.get_participant(session, bill_id, user_id)
-    return bool(participant)
-
-
 async def create_bill(
     bill_in: serializers.BillIn, user: models.User, session: AsyncSession
 ) -> models.Bill:
-    logger.debug('Testing current user group membership')
-    group = await repositories.groups.get_by_id(session, bill_in.group_id)
-    if user not in group.members:
-        raise AuthError(
-            f'User id={user.id} is not a member of a group id={bill_in.group_id}'
-        )
+    """
+    Version 0: All group members are participating in bill, current user is payer, no repository layer
+    """
+    group = await get_group(bill_in.group_id, user, session)
 
-    logger.debug('Saving bill')
-    payer = (
-        await repositories.users.get_by_id(session, bill_in.payer_id)
-        if bill_in.payer_id
-        else user
-    )
-    group = await repositories.groups.get_by_id(session, bill_in.group_id)
-    bill = models.Bill(
-        description=bill_in.name,
-        total_amount=bill_in.total_amount,
-        payer_id=payer.id,
-        group_id=group.id,
-    )
-    session.add(bill)
-
-    logger.debug('Adding bill participants')
-    if bill_in.participants:
-        participants = bill_in.participants
+    if bill_in.payer_id:
+        payer = await repositories.users.get_by_id(session, bill_in.payer_id)
     else:
-        participants = []
-        for member in group.members:
-            if member.id != payer.id:
-                participants.append(serializers.Participant(user_id=member.id))
-    amounts = split(bill.total_amount, participants)
-    for participant in participants:
-        logger.debug('Add participant to bill')
-        session.add(
-            models.BillShare(
-                bill=bill,
-                user_id=participant.user_id,
-                amount_owed=amounts[participant.user_id],
-            )
-        )
+        payer = user
 
-    logger.debug('Saving participants')
+    shares = bill_in.shares or []
+    if shares:
+        participants = await repositories.users.get_by_ids(session, [s.user_id for s in shares])
+    else:
+        participants = [member for member in group.members if member is not payer]
+
+    defined_shares = [share for share in shares if share.amount]
+    defined_amounts = sum(share.amount for share in defined_shares)
+    default_amount = (bill_in.total_amount - defined_amounts) / (
+        len(participants) - len(defined_shares)
+        + 1  # payer
+    )
+    amounts = {share.user_id: share.amount or default_amount for share in shares}
+
+    bill = models.Bill(
+        description=bill_in.description,
+        total_amount=bill_in.total_amount,
+        payer=payer,
+        group=group,
+    )
+    for participant in participants:
+        share = models.BillShare(user=participant, amount=amounts[participant.id])
+        session.add(share)
+        bill.shares.append(share)
+
+    session.add(bill)
     await session.commit()
-    logger.debug('Refreshing bill')
-    await session.refresh(bill)
     return bill
 
 
@@ -143,49 +116,21 @@ async def get_bill(
     bill = await repositories.bills.get_bill(session, bill_id)
     if not bill:
         return None
-    if user not in bill.participants or user.id != bill.payer_id:
+    if user not in bill.participants and user is not bill.payer:
         raise AuthError(f'User id={user.id} is not a participant of a bill id={bill_id}')
     return bill
 
 
 async def get_amount_owed(bill_id: int, user: models.User, session: AsyncSession):
-    share = await repositories.bills.get_participant(session, bill_id, user.id)
-    paid_amount = await repositories.transactions.get_paid_transactions(
-        session, bill_id, user.id
-    )
-    return share.amount_owed - paid_amount
+    raise NotImplementedError()
 
 
 async def create_transaction(
     transaction_in: serializers.TransactionIn, user: models.User, session: AsyncSession
 ):
-    is_participant = await user_is_participant(
-        transaction_in.recipient_id, transaction_in.bill_id, session
-    )
-    if not is_participant:
-        raise ServiceError(
-            f'Recipient is not participant of bill id={transaction_in.bill_id}'
-        )
+    await get_bill(transaction_in.bill_id, user, session)
     transaction = await repositories.transactions.add_transaction(
         session, transaction_in, user
     )
     await session.commit()
     return transaction
-
-
-def split(
-    total_amount, participants: Collection[serializers.Participant]
-) -> dict[int, float]:
-    amounts = {
-        participant.user_id: participant.amount
-        for participant in participants
-        if participant.amount is not None
-    }
-    prepared = sum(amounts.values())
-    equal_shares = len(participants) - len(amounts) + 1
-    share = (total_amount - prepared) / equal_shares
-    for participant in participants:
-        if participant.user_id in amounts:
-            continue
-        amounts[participant.user_id] = share
-    return amounts

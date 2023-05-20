@@ -18,9 +18,7 @@ import services
 from config import Settings
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
-templates = templating.Jinja2Templates(directory="templates")
 logger = logging.getLogger(__name__)
 
 settings = Settings()
@@ -74,11 +72,6 @@ async def get_users(
 ):
     users = await repositories.users.get_by_ids(session, user_ids)
     return [serializers.User.from_orm(user) for user in users]
-
-
-@app.get("/{id}")
-async def read_item(request: Request, id: str):
-    return templates.TemplateResponse("item.html", {"request": request, "id": id})
 
 
 @app.post('/users')
@@ -140,6 +133,11 @@ async def create_bill(
     user: Annotated[models.User, Depends(auth.get_user)],
     session: Annotated[AsyncSession, Depends(db.get_session)],
 ):
+    """
+    Share total amount of bill between group participants.
+    If payer_id is not supplied, current user is considered payer
+    If shares are not supplied total amount is divided equally between participants
+    """
     bill = await services.create_bill(bill_in, user, session)
     return serializers.Bill.from_orm(bill)
 

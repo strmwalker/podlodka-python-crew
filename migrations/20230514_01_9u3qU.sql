@@ -30,10 +30,10 @@ CREATE TABLE bills (
         CONSTRAINT fk_bills_payer_id_users FOREIGN KEY(payer_id) REFERENCES users (id),
         CONSTRAINT fk_bills_group_id_groups FOREIGN KEY(group_id) REFERENCES groups (id)
 );
-CREATE TABLE bill_participants (
+CREATE TABLE bill_shares (
         bill_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
-        amount_owed FLOAT NOT NULL,
+        amount FLOAT NOT NULL,
         CONSTRAINT pk_bill_participants PRIMARY KEY (bill_id, user_id),
         CONSTRAINT fk_bill_participants_bill_id_bills FOREIGN KEY(bill_id) REFERENCES bills (id),
         CONSTRAINT fk_bill_participants_user_id_users FOREIGN KEY(user_id) REFERENCES users (id)

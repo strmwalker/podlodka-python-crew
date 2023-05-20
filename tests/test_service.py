@@ -1,21 +1,19 @@
 import pytest
-from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
-import models
 import serializers
 import services
 
 
-async def test_create_user(db_session):
+async def test_create_user(db_session: AsyncSession):
     user_in = serializers.UserIn(
         name='johndoe', email='johndoe@example.com', password='password'
     )
     user = await services.create_user(user_in, db_session)
     assert user.id == 1
-    # await db_session.execute(delete(models.User))
 
 
-async def test_create_user_raises(db_session):
+async def test_create_user_raises(db_session: AsyncSession):
     user_in = serializers.UserIn(
         name='johndoe', email='johndoe@example.com', password='password'
     )

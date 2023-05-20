@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from sqlalchemy import Float, ForeignKey, Integer, String, MetaData, Table, Column
+from sqlalchemy.ext.associationproxy import AssociationProxy, association_proxy
 from sqlalchemy.orm import relationship, mapped_column, DeclarativeBase, Mapped
 from sqlalchemy.ext.asyncio import AsyncAttrs
 
@@ -37,9 +38,9 @@ class User(Base):
     groups: Mapped[list['Group']] = relationship(
         secondary='memberships', back_populates='members'
     )
-    bills: Mapped[list['Bill']] = relationship(
-        secondary='bill_shares', back_populates='participants'
-    )
+    # bills: Mapped[list['Bill']] = relationship(
+    #     secondary='bill_shares', back_populates='participants'
+    # )
 
 
 class Group(Base):
@@ -49,7 +50,7 @@ class Group(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     members: Mapped[list['User']] = relationship(
-        back_populates='groups', secondary='memberships', lazy='selectin'
+        back_populates='groups', secondary='memberships', lazy='joined'
     )
     bills: Mapped[list['Bill']] = relationship(back_populates='group')
 
@@ -58,18 +59,8 @@ memberships = Table(
     'memberships',
     Base.metadata,
     Column('user_id', ForeignKey('users.id'), primary_key=True),
-    Column('group_id', ForeignKey('groups.id'), primary_key=True)
+    Column('group_id', ForeignKey('groups.id'), primary_key=True),
 )
-
-# class Membership(Base):
-#     __tablename__ = 'memberships'
-#
-#     user_id: Mapped[int] = mapped_column(
-#         Integer, ForeignKey('users.id'), primary_key=True
-#     )
-#     group_id: Mapped[int] = mapped_column(
-#         Integer, ForeignKey('groups.id'), primary_key=True
-#     )
 
 
 class Bill(Base):
@@ -85,10 +76,8 @@ class Bill(Base):
     group_id: Mapped[int] = mapped_column(ForeignKey('groups.id'))
     group: Mapped['Group'] = relationship(back_populates='bills')
 
-    participants: Mapped[set['User']] = relationship(
-        secondary='bill_shares', lazy='joined', back_populates='bills'
-    )
-    # shares: Mapped[list['BillShare']] = relationship(lazy='joined', back_populates='bill')
+    shares: Mapped[list['BillShare']] = relationship(lazy='joined', back_populates='bill')
+    participants: AssociationProxy[list['User']] = association_proxy('shares', 'user')
 
     transactions: Mapped[list['Transaction']] = relationship(back_populates='bill')
 
@@ -101,9 +90,10 @@ class BillShare(Base):
     )
     user_id: Mapped[user_fk] = mapped_column(primary_key=True)
 
-    user: Mapped['User'] = relationship(lazy='joined', overlaps='participants,bills')
+    bill: Mapped['Bill'] = relationship()
+    user: Mapped['User'] = relationship(lazy='joined')
 
-    amount_owed: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
 
 class Transaction(Base):
