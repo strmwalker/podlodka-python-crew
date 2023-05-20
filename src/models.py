@@ -19,10 +19,6 @@ int_pk = Annotated[int, mapped_column(primary_key=True)]
 user_fk = Annotated[int, mapped_column(ForeignKey('users.id'))]
 
 
-# class Base(DeclarativeBase):
-#     metadata = metadata
-
-
 class Base(AsyncAttrs, DeclarativeBase):
     metadata = metadata
 
@@ -38,9 +34,6 @@ class User(Base):
     groups: Mapped[list['Group']] = relationship(
         secondary='memberships', back_populates='members'
     )
-    # bills: Mapped[list['Bill']] = relationship(
-    #     secondary='bill_shares', back_populates='participants'
-    # )
 
 
 class Group(Base):
@@ -50,9 +43,8 @@ class Group(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     members: Mapped[list['User']] = relationship(
-        back_populates='groups', secondary='memberships', lazy='joined'
+        back_populates='groups', secondary='memberships'
     )
-    bills: Mapped[list['Bill']] = relationship(back_populates='group')
 
 
 memberships = Table(
@@ -74,10 +66,9 @@ class Bill(Base):
     payer: Mapped['User'] = relationship(lazy='joined')
 
     group_id: Mapped[int] = mapped_column(ForeignKey('groups.id'))
-    group: Mapped['Group'] = relationship(back_populates='bills')
+    group: Mapped['Group'] = relationship()
 
     shares: Mapped[list['BillShare']] = relationship(lazy='joined', back_populates='bill')
-    participants: AssociationProxy[list['User']] = association_proxy('shares', 'user')
 
     transactions: Mapped[list['Transaction']] = relationship(back_populates='bill')
 

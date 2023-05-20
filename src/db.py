@@ -29,7 +29,7 @@ def engine_factory(settings: Settings):
     )
 
 
-Session = async_sessionmaker(expire_on_commit=False)
+Session = async_sessionmaker()
 
 
 async def get_session():

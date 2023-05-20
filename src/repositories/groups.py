@@ -14,18 +14,8 @@ logger = logging.getLogger(__name__)
 async def create_group(
     session: AsyncSession, group_in: serializers.GroupIn
 ) -> models.Group:
-    group = models.Group(name=group_in.name)
-    if group_in.members:
-        group.members = await repositories.users.get_by_ids(session, group_in.members)
-    session.add(group)
-    return group
+    pass
 
 
 async def get_by_id(session: AsyncSession, group_id: int) -> models.Group | None:
-    # statement = (
-    #     select(models.Group)
-    #     .where(models.Group.id == group_id)
-    #     .options(joinedload(models.Group.members))
-    # )
-    # return await session.scalar(statement)
-    return await session.get(models.Group, group_id)
+    pass

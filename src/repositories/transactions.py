@@ -9,15 +9,7 @@ import serializers
 async def add_transaction(
     session: AsyncSession, transaction_in: serializers.TransactionIn, user: models.User
 ) -> models.Transaction:
-    transaction = models.Transaction(
-        amount=transaction_in.amount,
-        payer=user,
-        bill_id=transaction_in.bill_id,
-        recipient_id=transaction_in.recipient_id,
-        description=transaction_in.description,
-    )
-    session.add(transaction)
-    return transaction
+    pass
 
 
 async def get_paid_transactions(session: AsyncSession, bill_id: int, user_id: int):
