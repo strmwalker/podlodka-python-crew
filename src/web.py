@@ -136,7 +136,7 @@ async def create_bill(
     """
     Share total amount of bill between group participants.
     If payer_id is not supplied, current user is considered payer
-    If shares are not supplied total amount is divided equally between participants
+    If amounts are not supplied total amount is divided equally between participants
     """
     bill = await services.create_bill(bill_in, user, session)
     return serializers.Bill.from_orm(bill)

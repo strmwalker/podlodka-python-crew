@@ -77,7 +77,7 @@ class Bill(Base):
     group: Mapped['Group'] = relationship(back_populates='bills')
 
     shares: Mapped[list['BillShare']] = relationship(lazy='joined', back_populates='bill')
-    participants: AssociationProxy[list['User']] = association_proxy('shares', 'user')
+    participants: AssociationProxy[list['User']] = association_proxy('amounts', 'user')
 
     transactions: Mapped[list['Transaction']] = relationship(back_populates='bill')
 

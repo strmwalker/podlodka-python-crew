@@ -67,6 +67,49 @@ async def add_member(
     return group
 
 
+# async def create_bill(
+#     bill_in: serializers.BillIn, user: models.User, session: AsyncSession
+# ) -> models.Bill:
+#     """
+#     Version 0: All group members are participating in bill, current user is payer, no repository layer
+#     """
+#     group = await get_group(bill_in.group_id, user, session)
+#
+#     if bill_in.payer_id:
+#         payer = await repositories.users.get_by_id(session, bill_in.payer_id)
+#     else:
+#         payer = user
+#
+#     shares = bill_in.shares or []
+#     if shares:
+#         participants = await repositories.users.get_by_ids(session, [s.user_id for s in shares])
+#     else:
+#         participants = [member for member in group.members if member is not payer]
+#
+#     defined_shares = [share for share in shares if share.amount]
+#     defined_amounts = sum(share.amount for share in defined_shares)
+#     default_amount = (bill_in.total_amount - defined_amounts) / (
+#         len(participants) - len(defined_shares)
+#         + 1  # payer
+#     )
+#     amounts = {share.user_id: share.amount or default_amount for share in shares}
+#
+#     bill = models.Bill(
+#         description=bill_in.description,
+#         total_amount=bill_in.total_amount,
+#         payer=payer,
+#         group=group,
+#     )
+#     for participant in participants:
+#         share = models.BillShare(user=participant, amount=amounts[participant.id])
+#         session.add(share)
+#         bill.shares.append(share)
+#
+#     session.add(bill)
+#     await session.commit()
+#     return bill
+
+
 async def create_bill(
     bill_in: serializers.BillIn, user: models.User, session: AsyncSession
 ) -> models.Bill:
@@ -75,37 +118,26 @@ async def create_bill(
     """
     group = await get_group(bill_in.group_id, user, session)
 
-    if bill_in.payer_id:
-        payer = await repositories.users.get_by_id(session, bill_in.payer_id)
+    payer_id = bill_in.payer_id or user.id
+    if bill_in.shares:
+        participant_ids = [share.user_id for share in bill_in.shares]
     else:
-        payer = user
+        participant_ids = [member.id for member in group.members if member.id != payer_id]
 
     shares = bill_in.shares or []
-    if shares:
-        participants = await repositories.users.get_by_ids(session, [s.user_id for s in shares])
-    else:
-        participants = [member for member in group.members if member is not payer]
-
     defined_shares = [share for share in shares if share.amount]
     defined_amounts = sum(share.amount for share in defined_shares)
     default_amount = (bill_in.total_amount - defined_amounts) / (
-        len(participants) - len(defined_shares)
+        len(participant_ids) - len(defined_shares)
         + 1  # payer
     )
     amounts = {share.user_id: share.amount or default_amount for share in shares}
 
-    bill = models.Bill(
-        description=bill_in.description,
-        total_amount=bill_in.total_amount,
-        payer=payer,
-        group=group,
-    )
-    for participant in participants:
-        share = models.BillShare(user=participant, amount=amounts[participant.id])
-        session.add(share)
-        bill.shares.append(share)
-
-    session.add(bill)
+    bill = await repositories.bills.create_bill(session, repositories.bills.Bill(
+        **bill_in.dict(exclude={'payer_id'}),
+        payer_id=payer_id,
+        amounts=amounts,
+    ))
     await session.commit()
     return bill
 
