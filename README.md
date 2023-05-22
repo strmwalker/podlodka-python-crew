@@ -31,6 +31,9 @@ docker-compose exec -- app black .
 docker-compose exec -- app isort .
 ```
 
+## Workshop
+Необходимо реализовать недостающие функции в services.py, repositories, tests. Ответы находятся в папке solutions в ветке solved.
+
 ## Полезные ссылки
 
 Введение в SQLAlchemy 2020 от автора https://youtu.be/1Va493SMTcY
