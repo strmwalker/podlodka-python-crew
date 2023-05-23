@@ -1,9 +1,8 @@
 from typing import Annotated
 
-from sqlalchemy import Float, ForeignKey, Integer, String, MetaData, Table, Column
-from sqlalchemy.ext.associationproxy import AssociationProxy, association_proxy
-from sqlalchemy.orm import relationship, mapped_column, DeclarativeBase, Mapped
+from sqlalchemy import ForeignKey, String, MetaData, Table, Column
 from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import relationship, mapped_column, DeclarativeBase, Mapped
 
 metadata = MetaData(
     naming_convention={
@@ -19,10 +18,6 @@ int_pk = Annotated[int, mapped_column(primary_key=True)]
 user_fk = Annotated[int, mapped_column(ForeignKey('users.id'))]
 
 
-# class Base(DeclarativeBase):
-#     metadata = metadata
-
-
 class Base(AsyncAttrs, DeclarativeBase):
     metadata = metadata
 
@@ -31,28 +26,24 @@ class User(Base):
     __tablename__ = 'users'
 
     id: Mapped[int_pk]
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    password: Mapped[str] = mapped_column(String(255))
 
     groups: Mapped[list['Group']] = relationship(
         secondary='memberships', back_populates='members'
     )
-    # bills: Mapped[list['Bill']] = relationship(
-    #     secondary='bill_shares', back_populates='participants'
-    # )
 
 
 class Group(Base):
     __tablename__ = 'groups'
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    id: Mapped[int_pk]
+    name: Mapped[str] = mapped_column(String(255))
 
     members: Mapped[list['User']] = relationship(
         back_populates='groups', secondary='memberships', lazy='joined'
     )
-    bills: Mapped[list['Bill']] = relationship(back_populates='group')
 
 
 memberships = Table(
@@ -66,18 +57,17 @@ memberships = Table(
 class Bill(Base):
     __tablename__ = 'bills'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int_pk]
     description: Mapped[str] = mapped_column(String(255))
     total_amount: Mapped[float]
 
-    payer_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    payer_id: Mapped[user_fk]
     payer: Mapped['User'] = relationship(lazy='joined')
 
     group_id: Mapped[int] = mapped_column(ForeignKey('groups.id'))
-    group: Mapped['Group'] = relationship(back_populates='bills')
+    group: Mapped['Group'] = relationship()
 
     shares: Mapped[list['BillShare']] = relationship(lazy='joined', back_populates='bill')
-    participants: AssociationProxy[list['User']] = association_proxy('amounts', 'user')
 
     transactions: Mapped[list['Transaction']] = relationship(back_populates='bill')
 
@@ -85,21 +75,19 @@ class Bill(Base):
 class BillShare(Base):
     __tablename__ = 'bill_shares'
 
-    bill_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey('bills.id'), primary_key=True
-    )
+    bill_id: Mapped[int] = mapped_column(ForeignKey('bills.id'), primary_key=True)
     user_id: Mapped[user_fk] = mapped_column(primary_key=True)
 
     bill: Mapped['Bill'] = relationship()
     user: Mapped['User'] = relationship(lazy='joined')
 
-    amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    amount: Mapped[float]
 
 
 class Transaction(Base):
     __tablename__ = 'transactions'
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int_pk]
     description: Mapped[str | None] = mapped_column(String(255))
     amount: Mapped[float]
 

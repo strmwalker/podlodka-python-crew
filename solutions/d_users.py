@@ -1,5 +1,3 @@
-
-
 async def get_by_email(session: AsyncSession, email: str) -> models.User | None:
     query = select(models.User).where(models.User.email == email)
     rows = await session.execute(query)

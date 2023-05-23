@@ -125,20 +125,24 @@ async def create_bill(
         participant_ids = [member.id for member in group.members if member.id != payer_id]
 
     shares = bill_in.shares or []
-    defined_shares = [share for share in shares if share.amount]
-    defined_amounts = sum(share.amount for share in defined_shares)
+    defined_shares = {share.user_id: share.amount for share in shares if share.amount}
+    defined_amounts = sum(share.amount for share in defined_shares.values())
     default_amount = (bill_in.total_amount - defined_amounts) / (
-        len(participant_ids) - len(defined_shares)
-        + 1  # payer
+        len(participant_ids) - len(defined_shares) + 1  # payer
     )
-    amounts = {share.user_id: share.amount or default_amount for share in shares}
 
-    bill = await repositories.bills.create_bill(session, repositories.bills.Bill(
-        **bill_in.dict(exclude={'payer_id'}),
-        payer_id=payer_id,
-        amounts=amounts,
-    ))
+    amounts = {
+        participant_id: defined_shares.get(participant_id, default_amount)
+        for participant_id in participant_ids
+    }
+    bill = await repositories.bills.create_bill(
+        session,
+        repositories.bills.Bill(
+            **bill_in.dict(exclude={'payer_id'}), payer_id=payer_id, amounts=amounts
+        ),
+    )
     await session.commit()
+    # await session.refresh(bill)
     return bill
 
 
